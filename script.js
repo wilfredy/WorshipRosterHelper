@@ -300,6 +300,7 @@ function generateRoster() {
   roster = [];
   const roles = ['領詩', '司琴', '鼓手', '結他手', '低音結他手', '和唱'];
   const serviceCount = new Map(); // Track monthly service count for each person
+  const recentAssignments = new Map(); // Track recent assignments for each person
   
   let currentDate = new Date(startDate);
   while (currentDate <= endDate) {
@@ -315,12 +316,23 @@ function generateRoster() {
     roles.forEach(role => {
       const available = personnel.filter(p => 
         p.roles.includes(role) && 
-        !p.unavailableDateRanges.some(range => isDateInRange(dateStr, range))
+        !p.unavailableDateRanges.some(range => isDateInRange(dateStr, range)) &&
+        (!recentAssignments.has(p.name) || 
+         (date - recentAssignments.get(p.name)) / (1000 * 60 * 60 * 24) >= 14) // At least 14 days gap
       );
+      
       if (available.length > 0) {
-        assignment.roles[role] = available[Math.floor(Math.random() * available.length)].name;
+        const selectedPerson = available[Math.floor(Math.random() * available.length)];
+        assignment.roles[role] = selectedPerson.name;
+        recentAssignments.set(selectedPerson.name, date.getTime());
       } else {
-        assignment.roles[role] = '(空)';
+        // If no one available without recent service, try without the recency check
+        const allAvailable = personnel.filter(p => 
+          p.roles.includes(role) && 
+          !p.unavailableDateRanges.some(range => isDateInRange(dateStr, range))
+        );
+        assignment.roles[role] = allAvailable.length > 0 ? 
+          allAvailable[Math.floor(Math.random() * allAvailable.length)].name : '(空)';
       }
     });
     
