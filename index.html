@@ -9,6 +9,11 @@
 </head>
 <body>
   <div class="container">
+    <div class="top-actions">
+      <button onclick="exportData()">導出數據</button>
+      <input type="file" id="importFile" accept=".csv" style="display: none" onchange="importData(event)">
+      <button onclick="document.getElementById('importFile').click()">導入數據</button>
+    </div>
     <h1>教會輪值表編排工具</h1>
     <div class="tabs">
       <button class="tab-btn active" data-tab="personnel">人員管理</button>

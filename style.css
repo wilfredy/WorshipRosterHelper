@@ -15,6 +15,23 @@ body {
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
+.top-actions {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.role-limit-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.service-limit-input {
+  width: 60px;
+  padding: 2px 5px;
+}
+
 h1 {
   text-align: center;
   color: #333;

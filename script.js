@@ -5,7 +5,59 @@ let constraints = [];
 let roster = [];
 let tempUnavailableDateRanges = [];
 
-// Generate 20 example people
+// Load data from localStorage
+const savedData = localStorage.getItem('churchRosterData');
+if (savedData) {
+  const data = JSON.parse(savedData);
+  personnel = data.personnel || [];
+  constraints = data.constraints || [];
+} 
+
+function saveToLocalStorage() {
+  localStorage.setItem('churchRosterData', JSON.stringify({
+    personnel,
+    constraints
+  }));
+}
+
+function exportData() {
+  const data = JSON.stringify({
+    personnel,
+    constraints
+  });
+  const blob = new Blob([data], { type: 'text/csv' });
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = '教會輪值表數據.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  window.URL.revokeObjectURL(url);
+}
+
+function importData(event) {
+  const file = event.target.files[0];
+  if (file) {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      try {
+        const data = JSON.parse(e.target.result);
+        personnel = data.personnel || [];
+        constraints = data.constraints || [];
+        saveToLocalStorage();
+        updatePersonnelList();
+        updatePersonnelSelects();
+        updateConstraintsList();
+      } catch (error) {
+        alert('導入失敗：文件格式錯誤');
+      }
+    };
+    reader.readAsText(file);
+  }
+}
+
+// Generate 20 example people with service limits
 const defaultPeople = [
   { name: "王小明", roles: ["領詩", "和唱"] },
   { name: "李美玲", roles: ["司琴"] },
@@ -80,7 +132,17 @@ document.getElementById('personnel-form').addEventListener('submit', (e) => {
     return;
   }
   
-  personnel.push({ name, roles, unavailableDateRanges });
+  const serviceLimits = {};
+  roles.forEach(role => {
+    serviceLimits[role] = 4; // Default limit of 4 services per month per role
+  });
+  personnel.push({ 
+    name, 
+    roles, 
+    unavailableDateRanges,
+    serviceLimits 
+  });
+  saveToLocalStorage();
   tempUnavailableDateRanges = [];
   document.getElementById('unavailable-dates').innerHTML = '';
   updatePersonnelList();
@@ -99,6 +161,23 @@ function updatePersonnelList() {
         <input type="text" value="${person.name}" onchange="updatePersonName(${index}, this.value)">
         <div class="role-edit">
           ${['領詩', '司琴', '鼓手', '結他手', '低音結他手', '和唱'].map(role => `
+            <div class="role-limit-group">
+              <label>
+                <input type="checkbox" value="${role}" 
+                  ${person.roles.includes(role) ? 'checked' : ''}
+                  onchange="updatePersonRole(${index}, '${role}', this.checked)">
+                ${role}
+              </label>
+              ${person.roles.includes(role) ? `
+                <input type="number" 
+                  value="${person.serviceLimits?.[role] || 4}" 
+                  min="1" max="10"
+                  onchange="updateServiceLimit(${index}, '${role}', this.value)"
+                  class="service-limit-input"
+                  placeholder="每月限制"
+                >
+              ` : ''}
+            </div>
             <label>
               <input type="checkbox" value="${role}" 
                 ${person.roles.includes(role) ? 'checked' : ''}
@@ -132,9 +211,20 @@ function updatePersonName(index, newName) {
 function updatePersonRole(index, role, checked) {
   if (checked && !personnel[index].roles.includes(role)) {
     personnel[index].roles.push(role);
+    personnel[index].serviceLimits = personnel[index].serviceLimits || {};
+    personnel[index].serviceLimits[role] = 4; // Default limit
   } else if (!checked) {
     personnel[index].roles = personnel[index].roles.filter(r => r !== role);
+    delete personnel[index].serviceLimits[role];
   }
+  saveToLocalStorage();
+  updatePersonnelList();
+}
+
+function updateServiceLimit(index, role, value) {
+  personnel[index].serviceLimits = personnel[index].serviceLimits || {};
+  personnel[index].serviceLimits[role] = parseInt(value) || 4;
+  saveToLocalStorage();
 }
 
 function removePersonDateRange(personIndex, rangeIndex) {
