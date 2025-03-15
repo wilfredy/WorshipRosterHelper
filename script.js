@@ -426,29 +426,44 @@ function generateRoster() {
   const startDate = new Date(document.getElementById('start-date').value);
   const endDate = new Date(document.getElementById('end-date').value);
   if (!startDate.getTime() || !endDate.getTime()) {
-    alert('請選擇開始和結束日期');
+    alert('請選擇開始和結束日期'); 
     return;
   }
 
   roster = [];
   const roles = ['領詩', '司琴', '鼓手', '結他手', '低音結他手', '和唱'];
-  const serviceCount = new Map(); // Track quarterly service count for each person and role
-  const totalServiceCount = new Map(); // Track total service count for each person
-  const recentAssignments = new Map(); // Track recent assignments for each person
+  const serviceCount = new Map();
+  const totalServiceCount = new Map();
+  const recentAssignments = new Map();
+  const preferredPairs = new Map();
 
-  // Initialize service count tracking
+  // Initialize counts and preferred pairs
   personnel.forEach(person => {
     Object.keys(person.serviceLimits || {}).forEach(role => {
       serviceCount.set(`${person.name}-${role}`, 0);
     });
     totalServiceCount.set(person.name, 0);
+    
+    // Build preferred pairs map
+    constraints.forEach(c => {
+      if (c.type === 'prefer' && (c.person1 === person.name || c.person2 === person.name)) {
+        const pair = c.person1 === person.name ? c.person2 : c.person1;
+        if (!preferredPairs.has(person.name)) {
+          preferredPairs.set(person.name, []);
+        }
+        preferredPairs.get(person.name).push(pair);
+      }
+    });
   });
 
   let currentDate = new Date(startDate);
+  let previousAssignments = new Map(); // Track last week's assignments
+
   while (currentDate <= endDate) {
-    // Reset counts every 3 months
     const currentQuarter = Math.floor(currentDate.getMonth() / 3);
     const startQuarter = Math.floor(startDate.getMonth() / 3);
+    
+    // Reset quarterly counts
     if (currentQuarter !== startQuarter) {
       personnel.forEach(person => {
         Object.keys(person.serviceLimits || {}).forEach(role => {
@@ -457,51 +472,127 @@ function generateRoster() {
       });
     }
 
-    if (currentDate.getDay() === 0) { // Check if it's Sunday
+    if (currentDate.getDay() === 0) {
       const date = new Date(currentDate);
-    const dateStr = date.toISOString().split('T')[0];
+      const dateStr = date.toISOString().split('T')[0];
+      const assignment = { date: dateStr, roles: {} };
+      
+      // First pass: Try to assign preferred pairs
+      const assignedThisWeek = new Set();
+      
+      roles.forEach(role => {
+        if (assignment.roles[role]) return; // Skip if already assigned
 
-    const assignment = {
-      date: dateStr,
-      roles: {}
-    };
+        const available = personnel.filter(p => 
+          p.roles.includes(role) &&
+          !assignedThisWeek.has(p.name) &&
+          !p.unavailableDateRanges.some(range => isDateInRange(dateStr, range)) &&
+          (!recentAssignments.has(p.name) || 
+           (date - recentAssignments.get(p.name)) / (1000 * 60 * 60 * 24) >= 14) &&
+          (!p.serviceLimits?.[role] || serviceCount.get(`${p.name}-${role}`) < p.serviceLimits[role])
+        );
 
-    roles.forEach(role => {
-      const available = personnel.filter(p => 
-        p.roles.includes(role) && 
-        !p.unavailableDateRanges.some(range => isDateInRange(dateStr, range)) &&
-        (!recentAssignments.has(p.name) || 
-         (date - recentAssignments.get(p.name)) / (1000 * 60 * 60 * 24) >= 14) && // At least 14 days gap
-        (!p.serviceLimits?.[role] || serviceCount.get(`${p.name}-${role}`) < p.serviceLimits[role]) // Check quarterly limit
+        if (available.length > 0) {
+          // Sort by total service count and preferred pairs
+          available.sort((a, b) => {
+            const aCount = totalServiceCount.get(a.name) || 0;
+            const bCount = totalServiceCount.get(b.name) || 0;
+            const aHasPreferred = hasPreferredPairAssigned(a.name, assignedThisWeek, preferredPairs);
+            const bHasPreferred = hasPreferredPairAssigned(b.name, assignedThisWeek, preferredPairs);
+            
+            if (aHasPreferred && !bHasPreferred) return -1;
+            if (!aHasPreferred && bHasPreferred) return 1;
+            return aCount - bCount;
+          });
+
+          const selectedPerson = available[0];
+          assignment.roles[role] = selectedPerson.name;
+          assignedThisWeek.add(selectedPerson.name);
+          recentAssignments.set(selectedPerson.name, date.getTime());
+          serviceCount.set(`${selectedPerson.name}-${role}`, (serviceCount.get(`${selectedPerson.name}-${role}`) || 0) + 1);
+          totalServiceCount.set(selectedPerson.name, (totalServiceCount.get(selectedPerson.name) || 0) + 1);
+        } else {
+          // Fallback: Try without recency check
+          const allAvailable = personnel.filter(p => 
+            p.roles.includes(role) &&
+            !assignedThisWeek.has(p.name) &&
+            !p.unavailableDateRanges.some(range => isDateInRange(dateStr, range))
+          ).sort((a, b) => (totalServiceCount.get(a.name) || 0) - (totalServiceCount.get(b.name) || 0));
+
+          if (allAvailable.length > 0) {
+            const selectedPerson = allAvailable[0];
+            assignment.roles[role] = selectedPerson.name;
+            assignedThisWeek.add(selectedPerson.name);
+            serviceCount.set(`${selectedPerson.name}-${role}`, (serviceCount.get(`${selectedPerson.name}-${role}`) || 0) + 1);
+            totalServiceCount.set(selectedPerson.name, (totalServiceCount.get(selectedPerson.name) || 0) + 1);
+          } else {
+            assignment.roles[role] = '(空)';
+          }
+        }
+      });
+
+      // Check for cannot-serve-together constraints
+      const hasConflict = roles.some(role1 => 
+        roles.some(role2 => 
+          role1 !== role2 &&
+          assignment.roles[role1] !== '(空)' &&
+          assignment.roles[role2] !== '(空)' &&
+          constraints.some(c => 
+            c.type === 'cannot' &&
+            ((c.person1 === assignment.roles[role1] && c.person2 === assignment.roles[role2]) ||
+             (c.person1 === assignment.roles[role2] && c.person2 === assignment.roles[role1]))
+          )
+        )
       );
 
-      if (available.length > 0) {
-        // Sort available people by their total service count
-        available.sort((a, b) => 
-          (totalServiceCount.get(a.name) || 0) - (totalServiceCount.get(b.name) || 0)
-        );
-        
-        // Select person with least total services
-        const selectedPerson = available[0];
-        assignment.roles[role] = selectedPerson.name;
-        recentAssignments.set(selectedPerson.name, date.getTime());
-        serviceCount.set(`${selectedPerson.name}-${role}`, (serviceCount.get(`${selectedPerson.name}-${role}`) || 0) + 1);
-        totalServiceCount.set(selectedPerson.name, (totalServiceCount.get(selectedPerson.name) || 0) + 1);
-      } else {
-        // If no one available without recent service, try without the recency check
-        const allAvailable = personnel.filter(p => 
-          p.roles.includes(role) && 
-          !p.unavailableDateRanges.some(range => isDateInRange(dateStr, range))
-        );
-        assignment.roles[role] = allAvailable.length > 0 ? 
-          allAvailable[Math.floor(Math.random() * allAvailable.length)].name : '(空)';
-      }
-    });
+      if (hasConflict) {
+        // If conflict found, try to reassign roles
+        roles.forEach(role => {
+          if (assignment.roles[role] === '(空)') return;
+          
+          const conflictingRoles = roles.filter(r => 
+            r !== role &&
+            assignment.roles[r] !== '(空)' &&
+            constraints.some(c => 
+              c.type === 'cannot' &&
+              ((c.person1 === assignment.roles[role] && c.person2 === assignment.roles[r]) ||
+               (c.person1 === assignment.roles[r] && c.person2 === assignment.roles[role]))
+            )
+          );
 
-    roster.push(assignment);
+          if (conflictingRoles.length > 0) {
+            const alternatives = personnel.filter(p =>
+              p.roles.includes(role) &&
+              !conflictingRoles.some(r => 
+                constraints.some(c => 
+                  c.type === 'cannot' &&
+                  ((c.person1 === p.name && c.person2 === assignment.roles[r]) ||
+                   (c.person1 === assignment.roles[r] && c.person2 === p.name))
+                )
+              )
+            );
+
+            if (alternatives.length > 0) {
+              alternatives.sort((a, b) => 
+                (totalServiceCount.get(a.name) || 0) - (totalServiceCount.get(b.name) || 0)
+              );
+              assignment.roles[role] = alternatives[0].name;
+            }
+          }
+        });
+      }
+
+      roster.push(assignment);
+      previousAssignments = new Map(Object.entries(assignment.roles));
     }
     currentDate.setDate(currentDate.getDate() + 1);
   }
+}
+
+function hasPreferredPairAssigned(personName, assignedThisWeek, preferredPairs) {
+  const pairs = preferredPairs.get(personName);
+  return pairs && pairs.some(pair => assignedThisWeek.has(pair));
+}
 
   document.getElementById('roster-table').innerHTML = `
     <h3>輪值期間: ${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}</h3>
