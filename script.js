@@ -296,19 +296,23 @@ function updatePersonnelList() {
   });
 }
 
-let hasUnsavedChanges = false;
+let hasUnsavedChanges = {};
 
-function setUnsavedChanges(value) {
-  hasUnsavedChanges = value;
-  document.querySelectorAll('.save-btn').forEach(btn => {
-    btn.style.display = value ? 'inline-block' : 'none';
-    btn.title = value ? '有未儲存的變更' : '';
-  });
+function setUnsavedChanges(index, value) {
+  hasUnsavedChanges[index] = value;
+  const personItem = document.querySelector(`.person-item:nth-child(${index + 1})`);
+  if (personItem) {
+    const saveBtn = personItem.querySelector('.save-btn');
+    if (saveBtn) {
+      saveBtn.style.display = value ? 'inline-block' : 'none';
+      saveBtn.title = value ? '有未儲存的變更' : '';
+    }
+  }
 }
 
 function updatePersonName(index, newName) {
   personnel[index].name = newName;
-  setUnsavedChanges(true);
+  setUnsavedChanges(index, true);
   updatePersonnelSelects();
 }
 
@@ -321,7 +325,7 @@ function updatePersonRole(index, role, checked) {
     personnel[index].roles = personnel[index].roles.filter(r => r !== role);
     delete personnel[index].serviceLimits[role];
   }
-  setUnsavedChanges(true);
+  setUnsavedChanges(index, true);
   updatePersonnelList();
 }
 
@@ -348,7 +352,7 @@ function addPersonDateRange(index) {
 
 function savePersonSettings(index) {
   saveToLocalStorage();
-  setUnsavedChanges(false);
+  setUnsavedChanges(index, false);
   alert(`已儲存 ${personnel[index].name} 的設定`);
 }
 
