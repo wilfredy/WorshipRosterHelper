@@ -174,16 +174,11 @@ function updatePersonnelList() {
                   min="1" max="10"
                   onchange="updateServiceLimit(${index}, '${role}', this.value)"
                   class="service-limit-input"
+                  title="設定每月最多服侍次數"
                   placeholder="每月限制"
                 >
               ` : ''}
             </div>
-            <label>
-              <input type="checkbox" value="${role}" 
-                ${person.roles.includes(role) ? 'checked' : ''}
-                onchange="updatePersonRole(${index}, '${role}', this.checked)">
-              ${role}
-            </label>
           `).join('')}
         </div>
         <div class="date-ranges">
@@ -196,6 +191,7 @@ function updatePersonnelList() {
         </div>
       </div>
       <div class="person-actions">
+        <button onclick="savePersonSettings(${index})" class="save-btn">儲存設定</button>
         <button onclick="removePerson(${index})">刪除</button>
       </div>
     `;
@@ -224,7 +220,11 @@ function updatePersonRole(index, role, checked) {
 function updateServiceLimit(index, role, value) {
   personnel[index].serviceLimits = personnel[index].serviceLimits || {};
   personnel[index].serviceLimits[role] = parseInt(value) || 4;
+}
+
+function savePersonSettings(index) {
   saveToLocalStorage();
+  alert(`已儲存 ${personnel[index].name} 的設定`);
 }
 
 function removePersonDateRange(personIndex, rangeIndex) {
@@ -292,8 +292,6 @@ function savePreferences() {
 function generateRoster() {
   const startDate = new Date(document.getElementById('start-date').value);
   const endDate = new Date(document.getElementById('end-date').value);
-  const maxServices = parseInt(document.getElementById('max-services').value) || 4;
-  
   if (!startDate.getTime() || !endDate.getTime()) {
     alert('請選擇開始和結束日期');
     return;
