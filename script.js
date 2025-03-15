@@ -432,21 +432,32 @@ function generateRoster() {
 
   roster = [];
   const roles = ['領詩', '司琴', '鼓手', '結他手', '低音結他手', '和唱'];
-  const serviceCount = new Map(); // Track quarterly service count for each person and role
-  const totalServiceCount = new Map(); // Track total service count for each person
-  const recentAssignments = new Map(); // Track recent assignments for each person
+  const serviceCount = new Map();
+  const totalServiceCount = new Map();
+  const recentAssignments = new Map();
+  const preferredPairs = new Map();
 
-  // Initialize service count tracking
+  // Initialize counts and preferred pairs
   personnel.forEach(person => {
     Object.keys(person.serviceLimits || {}).forEach(role => {
       serviceCount.set(`${person.name}-${role}`, 0);
     });
     totalServiceCount.set(person.name, 0);
+    
+    // Build preferred pairs map
+    constraints.forEach(c => {
+      if (c.type === 'prefer' && (c.person1 === person.name || c.person2 === person.name)) {
+        const pair = c.person1 === person.name ? c.person2 : c.person1;
+        if (!preferredPairs.has(person.name)) {
+          preferredPairs.set(person.name, []);
+        }
+        preferredPairs.get(person.name).push(pair);
+      }
+    });
   });
 
   let currentDate = new Date(startDate);
   while (currentDate <= endDate) {
-    // Reset counts every 3 months
     const currentQuarter = Math.floor(currentDate.getMonth() / 3);
     const startQuarter = Math.floor(startDate.getMonth() / 3);
     if (currentQuarter !== startQuarter) {
@@ -466,35 +477,66 @@ function generateRoster() {
       roles: {}
     };
 
+    // First, check for cannot-serve-together constraints
+    const cannotServeTogether = new Set();
+    constraints.forEach(c => {
+      if (c.type === 'cannot') {
+        cannotServeTogether.add(`${c.person1}-${c.person2}`);
+        cannotServeTogether.add(`${c.person2}-${c.person1}`);
+      }
+    });
+
+    // Function to check if two people can serve together
+    const canServeTogether = (person1, person2) => {
+      return !cannotServeTogether.has(`${person1}-${person2}`);
+    };
+
+    // Function to get preferred pair score
+    const getPreferredScore = (person, assignedPeople) => {
+      if (!preferredPairs.has(person)) return 0;
+      return preferredPairs.get(person).filter(pair => assignedPeople.includes(pair)).length;
+    };
+
+    const assignedPeople = new Set();
+    
     roles.forEach(role => {
-      const available = personnel.filter(p => 
+      let available = personnel.filter(p => 
         p.roles.includes(role) && 
         !p.unavailableDateRanges.some(range => isDateInRange(dateStr, range)) &&
         (!recentAssignments.has(p.name) || 
-         (date - recentAssignments.get(p.name)) / (1000 * 60 * 60 * 24) >= 14) && // At least 14 days gap
-        (!p.serviceLimits?.[role] || serviceCount.get(`${p.name}-${role}`) < p.serviceLimits[role]) // Check quarterly limit
+         (date - recentAssignments.get(p.name)) / (1000 * 60 * 60 * 24) >= 14) &&
+        (!p.serviceLimits?.[role] || serviceCount.get(`${p.name}-${role}`) < p.serviceLimits[role]) &&
+        Array.from(assignedPeople).every(assigned => canServeTogether(p.name, assigned))
       );
 
       if (available.length > 0) {
-        // Sort available people by their total service count
-        available.sort((a, b) => 
-          (totalServiceCount.get(a.name) || 0) - (totalServiceCount.get(b.name) || 0)
-        );
+        // Sort by preferred pairs first, then by service count
+        available.sort((a, b) => {
+          const prefScoreA = getPreferredScore(a.name, Array.from(assignedPeople));
+          const prefScoreB = getPreferredScore(b.name, Array.from(assignedPeople));
+          if (prefScoreB !== prefScoreA) return prefScoreB - prefScoreA;
+          return (totalServiceCount.get(a.name) || 0) - (totalServiceCount.get(b.name) || 0);
+        });
         
-        // Select person with least total services
         const selectedPerson = available[0];
         assignment.roles[role] = selectedPerson.name;
+        assignedPeople.add(selectedPerson.name);
         recentAssignments.set(selectedPerson.name, date.getTime());
         serviceCount.set(`${selectedPerson.name}-${role}`, (serviceCount.get(`${selectedPerson.name}-${role}`) || 0) + 1);
         totalServiceCount.set(selectedPerson.name, (totalServiceCount.get(selectedPerson.name) || 0) + 1);
       } else {
-        // If no one available without recent service, try without the recency check
         const allAvailable = personnel.filter(p => 
           p.roles.includes(role) && 
-          !p.unavailableDateRanges.some(range => isDateInRange(dateStr, range))
+          !p.unavailableDateRanges.some(range => isDateInRange(dateStr, range)) &&
+          Array.from(assignedPeople).every(assigned => canServeTogether(p.name, assigned))
         );
-        assignment.roles[role] = allAvailable.length > 0 ? 
-          allAvailable[Math.floor(Math.random() * allAvailable.length)].name : '(空)';
+        if (allAvailable.length > 0) {
+          const selected = allAvailable[Math.floor(Math.random() * allAvailable.length)];
+          assignment.roles[role] = selected.name;
+          assignedPeople.add(selected.name);
+        } else {
+          assignment.roles[role] = '(空)';
+        }
       }
     });
 
