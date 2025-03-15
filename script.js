@@ -302,6 +302,7 @@ function setUnsavedChanges(value) {
   hasUnsavedChanges = value;
   document.querySelectorAll('.save-btn').forEach(btn => {
     btn.style.display = value ? 'inline-block' : 'none';
+    btn.title = value ? '有未儲存的變更' : '';
   });
 }
 
