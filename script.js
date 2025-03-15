@@ -247,6 +247,7 @@ document.getElementById('personnel-form').addEventListener('submit', (e) => {
 function updatePersonnelList() {
   const list = document.getElementById('personnel-list');
   list.innerHTML = '';
+  hasUnsavedChanges = {}; // Reset unsaved changes on list update
   personnel.forEach((person, index) => {
     const div = document.createElement('div');
     div.className = 'person-item';
