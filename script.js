@@ -46,13 +46,19 @@ function addPlaceholderData() {
 
 function exportToCsv() {
   // Export personnel data
-  let csvContent = "姓名,角色,不可用日期範圍\n";
+  let csvContent = "##人員資料##\n姓名,角色,不可用日期範圍\n";
   personnel.forEach(person => {
     const roles = person.roles.join('|');
     const dates = person.unavailableDateRanges
       .map(range => `${range.start}至${range.end}`)
       .join('|');
     csvContent += `${person.name},${roles},${dates}\n`;
+  });
+  
+  // Export constraints data
+  csvContent += "\n##限制與偏好##\n類型,人員1,人員2\n";
+  constraints.forEach(constraint => {
+    csvContent += `${constraint.type},${constraint.person1},${constraint.person2}\n`;
   });
 
   const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8' });
@@ -72,24 +78,43 @@ function importCsv(event) {
     const reader = new FileReader();
     reader.onload = function(e) {
       try {
-        const rows = e.target.result.split('\n');
+        const sections = e.target.result.split('##');
+        const personnelSection = sections.find(s => s.includes('人員資料'));
+        const constraintsSection = sections.find(s => s.includes('限制與偏好'));
+        
+        // Process personnel data
         personnel = [];
-        // Skip header row
-        for (let i = 1; i < rows.length; i++) {
-          if (!rows[i].trim()) continue;
-          const [name, roles, dates] = rows[i].split(',');
-          const personRoles = roles.split('|');
-          const unavailableDateRanges = dates.split('|')
-            .filter(date => date.trim())
-            .map(dateRange => {
-              const [start, end] = dateRange.split('至');
-              return { start, end };
+        if (personnelSection) {
+          const rows = personnelSection.split('\n').slice(2); // Skip section name and header
+          rows.forEach(row => {
+            if (!row.trim()) return;
+            const [name, roles, dates] = row.split(',');
+            if (!name) return;
+            const personRoles = roles.split('|');
+            const unavailableDateRanges = dates.split('|')
+              .filter(date => date.trim())
+              .map(dateRange => {
+                const [start, end] = dateRange.split('至');
+                return { start, end };
+              });
+            personnel.push({
+              name,
+              roles: personRoles,
+              unavailableDateRanges,
+              serviceLimits: {}
             });
-          personnel.push({
-            name,
-            roles: personRoles,
-            unavailableDateRanges,
-            serviceLimits: {}
+          });
+        }
+        
+        // Process constraints data
+        constraints = [];
+        if (constraintsSection) {
+          const rows = constraintsSection.split('\n').slice(2); // Skip section name and header
+          rows.forEach(row => {
+            if (!row.trim()) return;
+            const [type, person1, person2] = row.split(',');
+            if (!type || !person1 || !person2) return;
+            constraints.push({ type, person1, person2 });
           });
         }
         saveToLocalStorage();
@@ -271,8 +296,18 @@ function updatePersonnelList() {
   });
 }
 
+let hasUnsavedChanges = false;
+
+function setUnsavedChanges(value) {
+  hasUnsavedChanges = value;
+  document.querySelectorAll('.save-btn').forEach(btn => {
+    btn.style.display = value ? 'inline-block' : 'none';
+  });
+}
+
 function updatePersonName(index, newName) {
   personnel[index].name = newName;
+  setUnsavedChanges(true);
   updatePersonnelSelects();
 }
 
@@ -285,7 +320,7 @@ function updatePersonRole(index, role, checked) {
     personnel[index].roles = personnel[index].roles.filter(r => r !== role);
     delete personnel[index].serviceLimits[role];
   }
-  saveToLocalStorage();
+  setUnsavedChanges(true);
   updatePersonnelList();
 }
 
@@ -311,6 +346,7 @@ function addPersonDateRange(index) {
 
 function savePersonSettings(index) {
   saveToLocalStorage();
+  setUnsavedChanges(false);
   alert(`已儲存 ${personnel[index].name} 的設定`);
 }
 
