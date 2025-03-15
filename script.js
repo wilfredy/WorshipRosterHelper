@@ -81,7 +81,23 @@ const defaultPeople = [
   { name: "馮美玲", roles: ["和唱", "領詩"] }
 ].map(p => ({ ...p, unavailableDateRanges: [] }));
 
-personnel = defaultPeople;
+// Load saved data or use defaults
+function loadSavedData() {
+  const savedData = localStorage.getItem('churchRosterData');
+  if (savedData) {
+    const data = JSON.parse(savedData);
+    personnel = data.personnel || defaultPeople;
+    constraints = data.constraints || [];
+    updatePersonnelList();
+    updatePersonnelSelects();
+    updateConstraintsList();
+  } else {
+    personnel = defaultPeople;
+  }
+}
+
+// Load data when page loads
+document.addEventListener('DOMContentLoaded', loadSavedData);
 
 function addUnavailableDateRange() {
   const startDate = document.getElementById('unavailable-date-start').value;
