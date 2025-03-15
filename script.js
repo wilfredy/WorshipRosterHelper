@@ -32,7 +32,12 @@ function resetAllData() {
 
 function addPlaceholderData() {
   if (confirm('確定要添加預設數據嗎？')) {
-    personnel = defaultPeople;
+    // Filter out default people that already exist
+    const existingNames = personnel.map(p => p.name);
+    const newPeople = defaultPeople.filter(p => !existingNames.includes(p.name));
+    
+    // Merge new people with existing ones
+    personnel = [...personnel, ...newPeople];
     saveToLocalStorage();
     updatePersonnelList();
     updatePersonnelSelects();
