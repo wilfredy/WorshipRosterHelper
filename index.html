@@ -1,16 +1,65 @@
+
 <!DOCTYPE html>
 <html>
-
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width">
-  <title>replit</title>
+  <title>教會輪值表編排工具</title>
   <link href="style.css" rel="stylesheet" type="text/css" />
 </head>
-
 <body>
-  Hello world
+  <div class="container">
+    <h1>教會輪值表編排工具</h1>
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="personnel">人員管理</button>
+      <button class="tab-btn" data-tab="constraints">限制與偏好</button>
+      <button class="tab-btn" data-tab="roster">輪值表</button>
+    </div>
+    
+    <div id="personnel" class="tab-content active">
+      <h2>人員管理</h2>
+      <form id="personnel-form">
+        <input type="text" id="name" placeholder="姓名" required>
+        <div class="roles-checkboxes">
+          <label><input type="checkbox" value="領詩"> 領詩</label>
+          <label><input type="checkbox" value="司琴"> 司琴</label>
+          <label><input type="checkbox" value="鼓手"> 鼓手</label>
+          <label><input type="checkbox" value="結他手"> 結他手</label>
+          <label><input type="checkbox" value="低音結他手"> 低音結他手</label>
+          <label><input type="checkbox" value="和唱"> 和唱</label>
+        </div>
+        <button type="submit">新增人員</button>
+      </form>
+      <div id="personnel-list"></div>
+    </div>
+    
+    <div id="constraints" class="tab-content">
+      <h2>限制與偏好</h2>
+      <div class="constraints-section">
+        <h3>不能一起服侍</h3>
+        <select id="person-a"></select>
+        <select id="person-b"></select>
+        <button onclick="addConstraint('cannot')">新增限制</button>
+      </div>
+      <div class="constraints-section">
+        <h3>希望一起服侍</h3>
+        <select id="person-c"></select>
+        <select id="person-d"></select>
+        <button onclick="addConstraint('prefer')">新增偏好</button>
+      </div>
+      <div id="constraints-list"></div>
+    </div>
+    
+    <div id="roster" class="tab-content">
+      <h2>輪值表</h2>
+      <div class="date-selection">
+        <input type="date" id="start-date">
+        <button onclick="generateRoster()">生成輪值表</button>
+      </div>
+      <div id="roster-table"></div>
+      <button onclick="exportRoster()">導出輪值表</button>
+    </div>
+  </div>
   <script src="script.js"></script>
 </body>
-
 </html>
