@@ -3,6 +3,27 @@
 let personnel = [];
 let constraints = [];
 let roster = [];
+let tempUnavailableDates = [];
+
+function addUnavailableDate() {
+  const date = document.getElementById('unavailable-date').value;
+  if (date) {
+    tempUnavailableDates.push(date);
+    updateUnavailableDates();
+  }
+}
+
+function updateUnavailableDates() {
+  const container = document.getElementById('unavailable-dates');
+  container.innerHTML = tempUnavailableDates.map((date, index) => 
+    `<div>${date} <button onclick="removeUnavailableDate(${index})">刪除</button></div>`
+  ).join('');
+}
+
+function removeUnavailableDate(index) {
+  tempUnavailableDates.splice(index, 1);
+  updateUnavailableDates();
+}
 
 // Tab switching
 document.querySelectorAll('.tab-btn').forEach(button => {
@@ -20,13 +41,16 @@ document.getElementById('personnel-form').addEventListener('submit', (e) => {
   const name = document.getElementById('name').value;
   const roles = Array.from(document.querySelectorAll('.roles-checkboxes input:checked'))
     .map(checkbox => checkbox.value);
+  const unavailableDates = tempUnavailableDates || [];
   
   if (roles.length === 0) {
     alert('請選擇至少一個角色');
     return;
   }
   
-  personnel.push({ name, roles });
+  personnel.push({ name, roles, unavailableDates });
+  tempUnavailableDates = [];
+  document.getElementById('unavailable-dates').innerHTML = '';
   updatePersonnelList();
   updatePersonnelSelects();
   document.getElementById('personnel-form').reset();
@@ -104,21 +128,26 @@ function generateRoster() {
     return;
   }
   
-  // Simple roster generation (can be enhanced with more sophisticated algorithm)
   roster = [];
   const roles = ['領詩', '司琴', '鼓手', '結他手', '低音結他手', '和唱'];
+  const endDate = new Date(startDate);
+  endDate.setDate(endDate.getDate() + 21); // 4 weeks from start
   
-  for (let i = 0; i < 4; i++) { // Generate 4 weeks
+  for (let i = 0; i < 4; i++) {
     const date = new Date(startDate);
     date.setDate(date.getDate() + i * 7);
+    const dateStr = date.toISOString().split('T')[0];
     
     const assignment = {
-      date: date.toISOString().split('T')[0],
+      date: dateStr,
       roles: {}
     };
     
     roles.forEach(role => {
-      const available = personnel.filter(p => p.roles.includes(role));
+      const available = personnel.filter(p => 
+        p.roles.includes(role) && 
+        !p.unavailableDates.includes(dateStr)
+      );
       if (available.length > 0) {
         assignment.roles[role] = available[Math.floor(Math.random() * available.length)].name;
       } else {
@@ -128,6 +157,33 @@ function generateRoster() {
     
     roster.push(assignment);
   }
+  
+  document.getElementById('roster-table').innerHTML = `
+    <h3>輪值期間: ${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}</h3>
+    <table>
+      <tr>
+        <th>日期</th>
+        <th>領詩</th>
+        <th>司琴</th>
+        <th>鼓手</th>
+        <th>結他手</th>
+        <th>低音結他手</th>
+        <th>和唱</th>
+      </tr>
+      ${roster.map(week => `
+        <tr>
+          <td>${week.date}</td>
+          <td>${week.roles['領詩']}</td>
+          <td>${week.roles['司琴']}</td>
+          <td>${week.roles['鼓手']}</td>
+          <td>${week.roles['結他手']}</td>
+          <td>${week.roles['低音結他手']}</td>
+          <td>${week.roles['和唱']}</td>
+        </tr>
+      `).join('')}
+    </table>
+  `;
+}
   
   displayRoster();
 }
