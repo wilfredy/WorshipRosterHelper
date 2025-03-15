@@ -328,6 +328,7 @@ function updatePersonRole(index, role, checked) {
 function updateServiceLimit(index, role, value) {
   personnel[index].serviceLimits = personnel[index].serviceLimits || {};
   personnel[index].serviceLimits[role] = parseInt(value) || 4;
+  setUnsavedChanges(true);
 }
 
 function addPersonDateRange(index) {
@@ -340,7 +341,7 @@ function addPersonDateRange(index) {
       start: startInput.value,
       end: endInput.value
     });
-    saveToLocalStorage();
+    setUnsavedChanges(true);
     updatePersonnelList();
   }
 }
@@ -353,6 +354,7 @@ function savePersonSettings(index) {
 
 function removePersonDateRange(personIndex, rangeIndex) {
   personnel[personIndex].unavailableDateRanges.splice(rangeIndex, 1);
+  setUnsavedChanges(true);
   updatePersonnelList();
 }
 
