@@ -206,7 +206,6 @@ th {
   margin-top: 20px;
   background-color: #28a745;
   animation: pulse 2s infinite;
-  display: none;
 }
 
 .save-btn:hover {
