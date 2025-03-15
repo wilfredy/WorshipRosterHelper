@@ -433,6 +433,7 @@ function generateRoster() {
   roster = [];
   const roles = ['領詩', '司琴', '鼓手', '結他手', '低音結他手', '和唱'];
   const serviceCount = new Map(); // Track quarterly service count for each person and role
+  const totalServiceCount = new Map(); // Track total service count for each person
   const recentAssignments = new Map(); // Track recent assignments for each person
 
   // Initialize service count tracking
@@ -440,6 +441,7 @@ function generateRoster() {
     Object.keys(person.serviceLimits || {}).forEach(role => {
       serviceCount.set(`${person.name}-${role}`, 0);
     });
+    totalServiceCount.set(person.name, 0);
   });
 
   let currentDate = new Date(startDate);
@@ -474,10 +476,17 @@ function generateRoster() {
       );
 
       if (available.length > 0) {
-        const selectedPerson = available[Math.floor(Math.random() * available.length)];
+        // Sort available people by their total service count
+        available.sort((a, b) => 
+          (totalServiceCount.get(a.name) || 0) - (totalServiceCount.get(b.name) || 0)
+        );
+        
+        // Select person with least total services
+        const selectedPerson = available[0];
         assignment.roles[role] = selectedPerson.name;
         recentAssignments.set(selectedPerson.name, date.getTime());
         serviceCount.set(`${selectedPerson.name}-${role}`, (serviceCount.get(`${selectedPerson.name}-${role}`) || 0) + 1);
+        totalServiceCount.set(selectedPerson.name, (totalServiceCount.get(selectedPerson.name) || 0) + 1);
       } else {
         // If no one available without recent service, try without the recency check
         const allAvailable = personnel.filter(p => 
