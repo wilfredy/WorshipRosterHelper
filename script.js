@@ -326,6 +326,7 @@ function updatePersonRole(index, role, checked) {
     delete personnel[index].serviceLimits[role];
   }
   setUnsavedChanges(index, true);
+  saveToLocalStorage();
   updatePersonnelList();
 }
 

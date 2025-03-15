@@ -204,7 +204,6 @@ th {
 
 .save-btn {
   margin-top: 20px;
-  display: none;
   background-color: #28a745;
   animation: pulse 2s infinite;
 }
