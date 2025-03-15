@@ -1,4 +1,3 @@
-
 // Data storage
 let personnel = [];
 let constraints = [];
@@ -102,7 +101,7 @@ document.addEventListener('DOMContentLoaded', loadSavedData);
 function addUnavailableDateRange() {
   const startDate = document.getElementById('unavailable-date-start').value;
   const endDate = document.getElementById('unavailable-date-end').value;
-  
+
   if (startDate && endDate) {
     tempUnavailableDateRanges.push({ start: startDate, end: endDate });
     updateUnavailableDates();
@@ -142,12 +141,12 @@ document.getElementById('personnel-form').addEventListener('submit', (e) => {
   const roles = Array.from(document.querySelectorAll('.roles-checkboxes input:checked'))
     .map(checkbox => checkbox.value);
   const unavailableDateRanges = tempUnavailableDateRanges || [];
-  
+
   if (roles.length === 0) {
     alert('請選擇至少一個角色');
     return;
   }
-  
+
   const serviceLimits = {};
   roles.forEach(role => {
     serviceLimits[role] = 4; // Default limit of 4 services per month per role
@@ -204,6 +203,9 @@ function updatePersonnelList() {
               <button onclick="removePersonDateRange(${index}, ${rangeIndex})">刪除</button>
             </div>
           `).join('')}
+          <input type="date" id="new-date-start-${index}" placeholder="開始日期">
+          <input type="date" id="new-date-end-${index}" placeholder="結束日期">
+          <button onclick="addPersonDateRange(${index})">新增日期範圍</button>
         </div>
       </div>
       <div class="person-actions">
@@ -238,6 +240,21 @@ function updateServiceLimit(index, role, value) {
   personnel[index].serviceLimits[role] = parseInt(value) || 4;
 }
 
+function addPersonDateRange(index) {
+  const startInput = document.getElementById(`new-date-start-${index}`);
+  const endInput = document.getElementById(`new-date-end-${index}`);
+
+  if (startInput.value && endInput.value) {
+    personnel[index].unavailableDateRanges = personnel[index].unavailableDateRanges || [];
+    personnel[index].unavailableDateRanges.push({
+      start: startInput.value,
+      end: endInput.value
+    });
+    saveToLocalStorage();
+    updatePersonnelList();
+  }
+}
+
 function savePersonSettings(index) {
   saveToLocalStorage();
   alert(`已儲存 ${personnel[index].name} 的設定`);
@@ -270,12 +287,12 @@ function addConstraint(type) {
   const person2 = type === 'cannot' ? 
     document.getElementById('person-b').value :
     document.getElementById('person-d').value;
-    
+
   if (!person1 || !person2) {
     alert('請選擇兩個人員');
     return;
   }
-  
+
   constraints.push({ type, person1, person2 });
   updateConstraintsList();
 }
@@ -312,23 +329,23 @@ function generateRoster() {
     alert('請選擇開始和結束日期');
     return;
   }
-  
+
   roster = [];
   const roles = ['領詩', '司琴', '鼓手', '結他手', '低音結他手', '和唱'];
   const serviceCount = new Map(); // Track monthly service count for each person
   const recentAssignments = new Map(); // Track recent assignments for each person
-  
+
   let currentDate = new Date(startDate);
   while (currentDate <= endDate) {
     if (currentDate.getDay() === 0) { // Check if it's Sunday
       const date = new Date(currentDate);
     const dateStr = date.toISOString().split('T')[0];
-    
+
     const assignment = {
       date: dateStr,
       roles: {}
     };
-    
+
     roles.forEach(role => {
       const available = personnel.filter(p => 
         p.roles.includes(role) && 
@@ -336,7 +353,7 @@ function generateRoster() {
         (!recentAssignments.has(p.name) || 
          (date - recentAssignments.get(p.name)) / (1000 * 60 * 60 * 24) >= 14) // At least 14 days gap
       );
-      
+
       if (available.length > 0) {
         const selectedPerson = available[Math.floor(Math.random() * available.length)];
         assignment.roles[role] = selectedPerson.name;
@@ -351,12 +368,12 @@ function generateRoster() {
           allAvailable[Math.floor(Math.random() * allAvailable.length)].name : '(空)';
       }
     });
-    
+
     roster.push(assignment);
     }
     currentDate.setDate(currentDate.getDate() + 1);
   }
-  
+
   document.getElementById('roster-table').innerHTML = `
     <h3>輪值期間: ${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}</h3>
     <table>
@@ -420,7 +437,7 @@ function exportRoster() {
       `${week.date},${week.roles['領詩']},${week.roles['司琴']},${week.roles['鼓手']},` +
       `${week.roles['結他手']},${week.roles['低音結他手']},${week.roles['和唱']}`
     ).join("\n");
-    
+
   const encodedUri = encodeURI(csvContent);
   const link = document.createElement("a");
   link.setAttribute("href", encodedUri);
