@@ -184,9 +184,6 @@ function generateRoster() {
     </table>
   `;
 }
-  
-  displayRoster();
-}
 
 function displayRoster() {
   const table = document.getElementById('roster-table');
