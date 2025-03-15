@@ -381,11 +381,29 @@ function generateRoster() {
 
   roster = [];
   const roles = ['領詩', '司琴', '鼓手', '結他手', '低音結他手', '和唱'];
-  const serviceCount = new Map(); // Track monthly service count for each person
+  const serviceCount = new Map(); // Track quarterly service count for each person and role
   const recentAssignments = new Map(); // Track recent assignments for each person
+
+  // Initialize service count tracking
+  personnel.forEach(person => {
+    Object.keys(person.serviceLimits || {}).forEach(role => {
+      serviceCount.set(`${person.name}-${role}`, 0);
+    });
+  });
 
   let currentDate = new Date(startDate);
   while (currentDate <= endDate) {
+    // Reset counts every 3 months
+    const currentQuarter = Math.floor(currentDate.getMonth() / 3);
+    const startQuarter = Math.floor(startDate.getMonth() / 3);
+    if (currentQuarter !== startQuarter) {
+      personnel.forEach(person => {
+        Object.keys(person.serviceLimits || {}).forEach(role => {
+          serviceCount.set(`${person.name}-${role}`, 0);
+        });
+      });
+    }
+
     if (currentDate.getDay() === 0) { // Check if it's Sunday
       const date = new Date(currentDate);
     const dateStr = date.toISOString().split('T')[0];
@@ -400,13 +418,15 @@ function generateRoster() {
         p.roles.includes(role) && 
         !p.unavailableDateRanges.some(range => isDateInRange(dateStr, range)) &&
         (!recentAssignments.has(p.name) || 
-         (date - recentAssignments.get(p.name)) / (1000 * 60 * 60 * 24) >= 14) // At least 14 days gap
+         (date - recentAssignments.get(p.name)) / (1000 * 60 * 60 * 24) >= 14) && // At least 14 days gap
+        (!p.serviceLimits?.[role] || serviceCount.get(`${p.name}-${role}`) < p.serviceLimits[role]) // Check quarterly limit
       );
 
       if (available.length > 0) {
         const selectedPerson = available[Math.floor(Math.random() * available.length)];
         assignment.roles[role] = selectedPerson.name;
         recentAssignments.set(selectedPerson.name, date.getTime());
+        serviceCount.set(`${selectedPerson.name}-${role}`, (serviceCount.get(`${selectedPerson.name}-${role}`) || 0) + 1);
       } else {
         // If no one available without recent service, try without the recency check
         const allAvailable = personnel.filter(p => 
