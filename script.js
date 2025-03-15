@@ -456,6 +456,25 @@ function generateRoster() {
     });
   });
 
+  // Initialize counts and preferred pairs
+  personnel.forEach(person => {
+    Object.keys(person.serviceLimits || {}).forEach(role => {
+      serviceCount.set(`${person.name}-${role}`, 0);
+    });
+    totalServiceCount.set(person.name, 0);
+    
+    // Build preferred pairs map
+    constraints.forEach(c => {
+      if (c.type === 'prefer' && (c.person1 === person.name || c.person2 === person.name)) {
+        const pair = c.person1 === person.name ? c.person2 : c.person1;
+        if (!preferredPairs.has(person.name)) {
+          preferredPairs.set(person.name, []);
+        }
+        preferredPairs.get(person.name).push(pair);
+      }
+    });
+  });
+
   let currentDate = new Date(startDate);
   let previousAssignments = new Map(); // Track last week's assignments
 
