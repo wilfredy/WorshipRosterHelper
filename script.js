@@ -333,6 +333,7 @@ function updateServiceLimit(index, role, value) {
   personnel[index].serviceLimits = personnel[index].serviceLimits || {};
   personnel[index].serviceLimits[role] = parseInt(value) || 4;
   setUnsavedChanges(index, true);
+  updatePersonnelList();
 }
 
 function addPersonDateRange(index) {
@@ -358,7 +359,7 @@ function savePersonSettings(index) {
 
 function removePersonDateRange(personIndex, rangeIndex) {
   personnel[personIndex].unavailableDateRanges.splice(rangeIndex, 1);
-  setUnsavedChanges(true);
+  setUnsavedChanges(personIndex, true);
   updatePersonnelList();
 }
 
