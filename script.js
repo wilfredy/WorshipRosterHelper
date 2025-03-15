@@ -3,26 +3,58 @@
 let personnel = [];
 let constraints = [];
 let roster = [];
-let tempUnavailableDates = [];
+let tempUnavailableDateRanges = [];
 
-function addUnavailableDate() {
-  const date = document.getElementById('unavailable-date').value;
-  if (date) {
-    tempUnavailableDates.push(date);
+// Generate 20 example people
+const defaultPeople = [
+  { name: "王小明", roles: ["領詩", "和唱"] },
+  { name: "李美玲", roles: ["司琴"] },
+  { name: "張大衛", roles: ["鼓手", "結他手"] },
+  { name: "陳雅琪", roles: ["和唱", "領詩"] },
+  { name: "林志豪", roles: ["低音結他手"] },
+  { name: "黃詩婷", roles: ["司琴", "和唱"] },
+  { name: "吳俊傑", roles: ["結他手"] },
+  { name: "周淑芬", roles: ["領詩"] },
+  { name: "劉建國", roles: ["鼓手"] },
+  { name: "鄭雅文", roles: ["和唱"] },
+  { name: "謝志明", roles: ["低音結他手", "結他手"] },
+  { name: "楊美琪", roles: ["司琴"] },
+  { name: "蔡英俊", roles: ["領詩", "和唱"] },
+  { name: "許雅婷", roles: ["和唱"] },
+  { name: "彭俊豪", roles: ["鼓手"] },
+  { name: "趙小萍", roles: ["司琴", "和唱"] },
+  { name: "郭志偉", roles: ["結他手"] },
+  { name: "何淑華", roles: ["領詩"] },
+  { name: "朱建安", roles: ["低音結他手"] },
+  { name: "馮美玲", roles: ["和唱", "領詩"] }
+].map(p => ({ ...p, unavailableDateRanges: [] }));
+
+personnel = defaultPeople;
+
+function addUnavailableDateRange() {
+  const startDate = document.getElementById('unavailable-date-start').value;
+  const endDate = document.getElementById('unavailable-date-end').value;
+  
+  if (startDate && endDate) {
+    tempUnavailableDateRanges.push({ start: startDate, end: endDate });
     updateUnavailableDates();
   }
 }
 
 function updateUnavailableDates() {
   const container = document.getElementById('unavailable-dates');
-  container.innerHTML = tempUnavailableDates.map((date, index) => 
-    `<div>${date} <button onclick="removeUnavailableDate(${index})">刪除</button></div>`
+  container.innerHTML = tempUnavailableDateRanges.map((range, index) => 
+    `<div>${range.start} 至 ${range.end} <button onclick="removeUnavailableDateRange(${index})">刪除</button></div>`
   ).join('');
 }
 
-function removeUnavailableDate(index) {
-  tempUnavailableDates.splice(index, 1);
+function removeUnavailableDateRange(index) {
+  tempUnavailableDateRanges.splice(index, 1);
   updateUnavailableDates();
+}
+
+function isDateInRange(date, range) {
+  return date >= range.start && date <= range.end;
 }
 
 // Tab switching
@@ -41,15 +73,15 @@ document.getElementById('personnel-form').addEventListener('submit', (e) => {
   const name = document.getElementById('name').value;
   const roles = Array.from(document.querySelectorAll('.roles-checkboxes input:checked'))
     .map(checkbox => checkbox.value);
-  const unavailableDates = tempUnavailableDates || [];
+  const unavailableDateRanges = tempUnavailableDateRanges || [];
   
   if (roles.length === 0) {
     alert('請選擇至少一個角色');
     return;
   }
   
-  personnel.push({ name, roles, unavailableDates });
-  tempUnavailableDates = [];
+  personnel.push({ name, roles, unavailableDateRanges });
+  tempUnavailableDateRanges = [];
   document.getElementById('unavailable-dates').innerHTML = '';
   updatePersonnelList();
   updatePersonnelSelects();
@@ -146,7 +178,7 @@ function generateRoster() {
     roles.forEach(role => {
       const available = personnel.filter(p => 
         p.roles.includes(role) && 
-        !p.unavailableDates.includes(dateStr)
+        !p.unavailableDateRanges.some(range => isDateInRange(dateStr, range))
       );
       if (available.length > 0) {
         assignment.roles[role] = available[Math.floor(Math.random() * available.length)].name;

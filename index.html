@@ -20,9 +20,13 @@
       <h2>人員管理</h2>
       <form id="personnel-form">
         <input type="text" id="name" placeholder="姓名" required>
-        <label>不可用日期:</label>
-        <input type="date" id="unavailable-date" multiple>
-        <button type="button" onclick="addUnavailableDate()">添加日期</button>
+        <div class="date-range">
+          <label>不可用日期範圍:</label>
+          <input type="date" id="unavailable-date-start">
+          <span>至</span>
+          <input type="date" id="unavailable-date-end">
+          <button type="button" onclick="addUnavailableDateRange()">添加日期範圍</button>
+        </div>
         <div id="unavailable-dates"></div>
         <div class="roles-checkboxes">
           <label><input type="checkbox" value="領詩"> 領詩</label>

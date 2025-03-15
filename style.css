@@ -56,10 +56,17 @@ form {
   gap: 15px;
 }
 
-input[type="text"], select {
+input[type="text"], input[type="date"], select {
   padding: 8px;
   border: 1px solid #ddd;
   border-radius: 4px;
+}
+
+.date-range {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .roles-checkboxes {
