@@ -283,6 +283,11 @@ function removeConstraint(index) {
   updateConstraintsList();
 }
 
+function savePreferences() {
+  saveToLocalStorage();
+  alert('偏好設定已儲存');
+}
+
 // Roster generation
 function generateRoster() {
   const startDate = new Date(document.getElementById('start-date').value);
@@ -298,9 +303,10 @@ function generateRoster() {
   const roles = ['領詩', '司琴', '鼓手', '結他手', '低音結他手', '和唱'];
   const serviceCount = new Map(); // Track monthly service count for each person
   
-  for (let i = 0; i < 4; i++) {
-    const date = new Date(startDate);
-    date.setDate(date.getDate() + i * 7);
+  let currentDate = new Date(startDate);
+  while (currentDate <= endDate) {
+    if (currentDate.getDay() === 0) { // Check if it's Sunday
+      const date = new Date(currentDate);
     const dateStr = date.toISOString().split('T')[0];
     
     const assignment = {
@@ -321,6 +327,8 @@ function generateRoster() {
     });
     
     roster.push(assignment);
+    }
+    currentDate.setDate(currentDate.getDate() + 1);
   }
   
   document.getElementById('roster-table').innerHTML = `

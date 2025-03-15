@@ -61,6 +61,7 @@
         <button onclick="addConstraint('prefer')">新增偏好</button>
       </div>
       <div id="constraints-list"></div>
+      <button onclick="savePreferences()" class="save-btn">儲存偏好設定</button>
     </div>
     
     <div id="roster" class="tab-content">
@@ -70,8 +71,6 @@
         <input type="date" id="start-date">
         <label>結束日期:</label>
         <input type="date" id="end-date">
-        <label>每人每月最多服侍次數:</label>
-        <input type="number" id="max-services" value="4" min="1" max="10">
         <button onclick="generateRoster()">生成輪值表</button>
       </div>
       <div id="roster-table"></div>
