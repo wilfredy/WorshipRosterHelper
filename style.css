@@ -210,3 +210,11 @@ th {
 .save-btn:hover {
   background-color: #218838;
 }
+
+.danger-btn {
+  background-color: #dc3545;
+}
+
+.danger-btn:hover {
+  background-color: #c82333;
+}

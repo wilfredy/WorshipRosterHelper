@@ -19,41 +19,90 @@ function saveToLocalStorage() {
   }));
 }
 
-function exportData() {
-  const data = JSON.stringify({
-    personnel,
-    constraints
+function resetAllData() {
+  if (confirm('確定要重設所有數據嗎？此操作無法復原。')) {
+    personnel = [];
+    constraints = [];
+    saveToLocalStorage();
+    updatePersonnelList();
+    updatePersonnelSelects();
+    updateConstraintsList();
+  }
+}
+
+function addPlaceholderData() {
+  if (confirm('確定要添加預設數據嗎？')) {
+    personnel = defaultPeople;
+    saveToLocalStorage();
+    updatePersonnelList();
+    updatePersonnelSelects();
+  }
+}
+
+function exportToCsv() {
+  // Export personnel data
+  let csvContent = "姓名,角色,不可用日期範圍\n";
+  personnel.forEach(person => {
+    const roles = person.roles.join('|');
+    const dates = person.unavailableDateRanges
+      .map(range => `${range.start}至${range.end}`)
+      .join('|');
+    csvContent += `${person.name},${roles},${dates}\n`;
   });
-  const blob = new Blob([data], { type: 'text/csv' });
+
+  const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8' });
   const url = window.URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = '教會輪值表數據.json';
+  a.download = '教會輪值表數據.csv';
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
   window.URL.revokeObjectURL(url);
 }
 
-function importData(event) {
+function importCsv(event) {
   const file = event.target.files[0];
   if (file) {
     const reader = new FileReader();
     reader.onload = function(e) {
       try {
-        const data = JSON.parse(e.target.result);
-        personnel = data.personnel || [];
-        constraints = data.constraints || [];
+        const rows = e.target.result.split('\n');
+        personnel = [];
+        // Skip header row
+        for (let i = 1; i < rows.length; i++) {
+          if (!rows[i].trim()) continue;
+          const [name, roles, dates] = rows[i].split(',');
+          const personRoles = roles.split('|');
+          const unavailableDateRanges = dates.split('|')
+            .filter(date => date.trim())
+            .map(dateRange => {
+              const [start, end] = dateRange.split('至');
+              return { start, end };
+            });
+          personnel.push({
+            name,
+            roles: personRoles,
+            unavailableDateRanges,
+            serviceLimits: {}
+          });
+        }
         saveToLocalStorage();
         updatePersonnelList();
         updatePersonnelSelects();
-        updateConstraintsList();
       } catch (error) {
-        alert('導入失敗：文件格式錯誤');
+        alert('導入失敗：CSV格式錯誤');
       }
     };
     reader.readAsText(file);
   }
+}
+
+function removePerson(index) {
+  personnel.splice(index, 1);
+  saveToLocalStorage();
+  updatePersonnelList();
+  updatePersonnelSelects();
 }
 
 // Generate 20 example people with service limits
