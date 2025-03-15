@@ -238,8 +238,8 @@ function updatePersonnelList() {
                   min="1" max="10"
                   onchange="updateServiceLimit(${index}, '${role}', this.value)"
                   class="service-limit-input"
-                  title="設定每月最多服侍次數"
-                  placeholder="每月限制"
+                  title="設定每季最多服侍次數"
+                  placeholder="每季限制"
                 >
               ` : ''}
             </div>
