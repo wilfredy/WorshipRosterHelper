@@ -93,12 +93,53 @@ function updatePersonnelList() {
   list.innerHTML = '';
   personnel.forEach((person, index) => {
     const div = document.createElement('div');
+    div.className = 'person-item';
     div.innerHTML = `
-      <p>${person.name} - ${person.roles.join(', ')}
-      <button onclick="removePerson(${index})">刪除</button></p>
+      <div class="person-info">
+        <input type="text" value="${person.name}" onchange="updatePersonName(${index}, this.value)">
+        <div class="role-edit">
+          ${['領詩', '司琴', '鼓手', '結他手', '低音結他手', '和唱'].map(role => `
+            <label>
+              <input type="checkbox" value="${role}" 
+                ${person.roles.includes(role) ? 'checked' : ''}
+                onchange="updatePersonRole(${index}, '${role}', this.checked)">
+              ${role}
+            </label>
+          `).join('')}
+        </div>
+        <div class="date-ranges">
+          ${person.unavailableDateRanges.map((range, rangeIndex) => `
+            <div class="date-range-item">
+              ${range.start} 至 ${range.end}
+              <button onclick="removePersonDateRange(${index}, ${rangeIndex})">刪除</button>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+      <div class="person-actions">
+        <button onclick="removePerson(${index})">刪除</button>
+      </div>
     `;
     list.appendChild(div);
   });
+}
+
+function updatePersonName(index, newName) {
+  personnel[index].name = newName;
+  updatePersonnelSelects();
+}
+
+function updatePersonRole(index, role, checked) {
+  if (checked && !personnel[index].roles.includes(role)) {
+    personnel[index].roles.push(role);
+  } else if (!checked) {
+    personnel[index].roles = personnel[index].roles.filter(r => r !== role);
+  }
+}
+
+function removePersonDateRange(personIndex, rangeIndex) {
+  personnel[personIndex].unavailableDateRanges.splice(rangeIndex, 1);
+  updatePersonnelList();
 }
 
 function removePerson(index) {
@@ -155,15 +196,17 @@ function removeConstraint(index) {
 // Roster generation
 function generateRoster() {
   const startDate = new Date(document.getElementById('start-date').value);
-  if (!startDate.getTime()) {
-    alert('請選擇開始日期');
+  const endDate = new Date(document.getElementById('end-date').value);
+  const maxServices = parseInt(document.getElementById('max-services').value) || 4;
+  
+  if (!startDate.getTime() || !endDate.getTime()) {
+    alert('請選擇開始和結束日期');
     return;
   }
   
   roster = [];
   const roles = ['領詩', '司琴', '鼓手', '結他手', '低音結他手', '和唱'];
-  const endDate = new Date(startDate);
-  endDate.setDate(endDate.getDate() + 21); // 4 weeks from start
+  const serviceCount = new Map(); // Track monthly service count for each person
   
   for (let i = 0; i < 4; i++) {
     const date = new Date(startDate);
