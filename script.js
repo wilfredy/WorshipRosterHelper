@@ -46,13 +46,19 @@ function addPlaceholderData() {
 
 function exportToCsv() {
   // Export personnel data
-  let csvContent = "##人員資料##\n姓名,角色,不可用日期範圍\n";
+  let csvContent = "##人員資料##\n姓名,角色,不可用日期範圍,服侍次數限制\n";
   personnel.forEach(person => {
     const roles = person.roles.join('|');
-    const dates = person.unavailableDateRanges
+    const dates = (person.unavailableDateRanges || [])
       .map(range => `${range.start}至${range.end}`)
       .join('|');
-    csvContent += `${person.name},${roles},${dates}\n`;
+    
+    // 处理服侍次数限制
+    const serviceLimitsStr = person.roles
+      .map(role => `${role}:${person.serviceLimits?.[role] || 4}`)
+      .join('|');
+    
+    csvContent += `${person.name},${roles},${dates},${serviceLimitsStr}\n`;
   });
   
   // Export constraints data
@@ -78,50 +84,139 @@ function importCsv(event) {
     const reader = new FileReader();
     reader.onload = function(e) {
       try {
-        const sections = e.target.result.split('##');
-        const personnelSection = sections.find(s => s.includes('人員資料'));
-        const constraintsSection = sections.find(s => s.includes('限制與偏好'));
+        console.log("CSV 原始内容:", e.target.result);
+        const content = e.target.result;
         
-        // Process personnel data
-        personnel = [];
-        if (personnelSection) {
-          const rows = personnelSection.split('\n').slice(2); // Skip section name and header
-          rows.forEach(row => {
-            if (!row.trim()) return;
-            const [name, roles, dates] = row.split(',');
-            if (!name) return;
-            const personRoles = roles.split('|');
-            const unavailableDateRanges = dates.split('|')
-              .filter(date => date.trim())
-              .map(dateRange => {
-                const [start, end] = dateRange.split('至');
-                return { start, end };
-              });
-            personnel.push({
-              name,
-              roles: personRoles,
-              unavailableDateRanges,
-              serviceLimits: {}
-            });
-          });
+        // 分割内容为行
+        const lines = content.split('\n');
+        console.log("总行数:", lines.length);
+        
+        // 找到人员数据部分
+        let personnelStartIndex = -1;
+        let constraintsStartIndex = -1;
+        
+        for (let i = 0; i < lines.length; i++) {
+          if (lines[i].includes('##人員資料##')) {
+            personnelStartIndex = i;
+          } else if (lines[i].includes('##限制與偏好##')) {
+            constraintsStartIndex = i;
+          }
         }
         
-        // Process constraints data
-        constraints = [];
-        if (constraintsSection) {
-          const rows = constraintsSection.split('\n').slice(2); // Skip section name and header
-          rows.forEach(row => {
-            if (!row.trim()) return;
-            const [type, person1, person2] = row.split(',');
-            if (!type || !person1 || !person2) return;
-            constraints.push({ type, person1, person2 });
-          });
+        console.log("人员数据开始行:", personnelStartIndex);
+        console.log("约束数据开始行:", constraintsStartIndex);
+        
+        if (personnelStartIndex === -1) {
+          alert('CSV 格式錯誤：找不到人員資料部分');
+          return;
         }
+        
+        // 处理人员数据
+        const tempPersonnel = [];
+        // 从标题行的下一行开始处理
+        for (let i = personnelStartIndex + 2; i < (constraintsStartIndex !== -1 ? constraintsStartIndex : lines.length); i++) {
+          const line = lines[i].trim();
+          if (!line) continue;
+          
+          console.log(`处理人员行 ${i}:`, line);
+          
+          const columns = line.split(',');
+          if (columns.length < 2) continue;
+          
+          const name = columns[0].trim();
+          if (!name) continue;
+          
+          const roles = columns[1].split('|').filter(r => r.trim());
+          
+          // 处理不可用日期
+          const unavailableDateRanges = [];
+          if (columns.length > 2 && columns[2].trim()) {
+            const dateRanges = columns[2].split('|');
+            for (const range of dateRanges) {
+              if (!range.trim()) continue;
+              const [start, end] = range.split('至');
+              if (start && end) {
+                unavailableDateRanges.push({
+                  start: start.trim(),
+                  end: end.trim()
+                });
+              }
+            }
+          }
+          
+          // 处理服侍次数限制
+          const serviceLimits = {};
+          if (columns.length > 3 && columns[3].trim()) {
+            const limits = columns[3].split('|');
+            for (const limit of limits) {
+              const [role, count] = limit.split(':');
+              if (role && count) {
+                serviceLimits[role.trim()] = parseInt(count.trim()) || 4;
+              }
+            }
+          } else {
+            // 默认限制
+            for (const role of roles) {
+              serviceLimits[role] = 4;
+            }
+          }
+          
+          tempPersonnel.push({
+            name,
+            roles,
+            unavailableDateRanges,
+            serviceLimits
+          });
+          
+          console.log("添加人员:", { name, roles, unavailableDateRanges, serviceLimits });
+        }
+        
+        console.log("解析后的人员:", tempPersonnel);
+        
+        // 处理约束数据
+        const tempConstraints = [];
+        if (constraintsStartIndex !== -1) {
+          // 从标题行的下一行开始处理
+          for (let i = constraintsStartIndex + 2; i < lines.length; i++) {
+            const line = lines[i].trim();
+            if (!line) continue;
+            
+            console.log(`处理约束行 ${i}:`, line);
+            
+            const columns = line.split(',');
+            if (columns.length < 3) continue;
+            
+            const type = columns[0].trim();
+            const person1 = columns[1].trim();
+            const person2 = columns[2].trim();
+            
+            if (type && person1 && person2) {
+              tempConstraints.push({ type, person1, person2 });
+              console.log("添加约束:", { type, person1, person2 });
+            }
+          }
+        }
+        
+        console.log("解析后的约束:", tempConstraints);
+        
+        if (tempPersonnel.length === 0) {
+          alert('未能解析到任何人員數據，請檢查 CSV 格式');
+          return;
+        }
+        
+        // 更新全局数据
+        personnel = tempPersonnel;
+        constraints = tempConstraints;
+        
         saveToLocalStorage();
         updatePersonnelList();
         updatePersonnelSelects();
+        updateConstraintsList();
+        
+        alert(`數據導入成功！共導入 ${personnel.length} 名人員和 ${constraints.length} 條限制`);
       } catch (error) {
-        alert('導入失敗：CSV格式錯誤');
+        alert('導入失敗：' + error.message);
+        console.error("CSV导入错误:", error);
       }
     };
     reader.readAsText(file);
