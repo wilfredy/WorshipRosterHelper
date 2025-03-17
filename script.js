@@ -532,14 +532,15 @@ function generateRoster() {
   const recentAssignments = new Map();
   const preferredPairs = new Map();
 
-  // Initialize counts and preferred pairs
+  // 初始化计数和首选对
   personnel.forEach(person => {
-    Object.keys(person.serviceLimits || {}).forEach(role => {
+    // 初始化每个角色的服务计数
+    person.roles.forEach(role => {
       serviceCount.set(`${person.name}-${role}`, 0);
     });
     totalServiceCount.set(person.name, 0);
     
-    // Build preferred pairs map
+    // 构建首选对映射
     constraints.forEach(c => {
       if (c.type === 'prefer' && (c.person1 === person.name || c.person2 === person.name)) {
         const pair = c.person1 === person.name ? c.person2 : c.person1;
@@ -552,90 +553,98 @@ function generateRoster() {
   });
 
   let currentDate = new Date(startDate);
+  // 确定当前季度
+  let currentQuarter = Math.floor(currentDate.getMonth() / 3);
+  
   while (currentDate <= endDate) {
-    const currentQuarter = Math.floor(currentDate.getMonth() / 3);
-    const startQuarter = Math.floor(startDate.getMonth() / 3);
-    if (currentQuarter !== startQuarter) {
+    // 检查是否进入新季度
+    const newQuarter = Math.floor(currentDate.getMonth() / 3);
+    if (newQuarter !== currentQuarter) {
+      // 重置服务计数
+      currentQuarter = newQuarter;
       personnel.forEach(person => {
-        Object.keys(person.serviceLimits || {}).forEach(role => {
+        person.roles.forEach(role => {
           serviceCount.set(`${person.name}-${role}`, 0);
         });
       });
     }
 
-    if (currentDate.getDay() === 0) { // Check if it's Sunday
+    if (currentDate.getDay() === 0) { // 检查是否为周日
       const date = new Date(currentDate);
-    const dateStr = date.toISOString().split('T')[0];
+      const dateStr = date.toISOString().split('T')[0];
 
-    const assignment = {
-      date: dateStr,
-      roles: {}
-    };
+      const assignment = {
+        date: dateStr,
+        roles: {}
+      };
 
-    // First, check for cannot-serve-together constraints
-    const cannotServeTogether = new Set();
-    constraints.forEach(c => {
-      if (c.type === 'cannot') {
-        cannotServeTogether.add(`${c.person1}-${c.person2}`);
-        cannotServeTogether.add(`${c.person2}-${c.person1}`);
-      }
-    });
+      // 首先，检查不能一起服务的约束
+      const cannotServeTogether = new Set();
+      constraints.forEach(c => {
+        if (c.type === 'cannot') {
+          cannotServeTogether.add(`${c.person1}-${c.person2}`);
+          cannotServeTogether.add(`${c.person2}-${c.person1}`);
+        }
+      });
 
-    // Function to check if two people can serve together
-    const canServeTogether = (person1, person2) => {
-      return !cannotServeTogether.has(`${person1}-${person2}`);
-    };
+      // 检查两个人是否可以一起服务
+      const canServeTogether = (person1, person2) => {
+        return !cannotServeTogether.has(`${person1}-${person2}`);
+      };
 
-    // Function to get preferred pair score
-    const getPreferredScore = (person, assignedPeople) => {
-      if (!preferredPairs.has(person)) return 0;
-      return preferredPairs.get(person).filter(pair => assignedPeople.includes(pair)).length;
-    };
+      // 获取首选对分数
+      const getPreferredScore = (person, assignedPeople) => {
+        if (!preferredPairs.has(person)) return 0;
+        return preferredPairs.get(person).filter(pair => assignedPeople.includes(pair)).length;
+      };
 
-    const assignedPeople = new Set();
-    
-    roles.forEach(role => {
-      let available = personnel.filter(p => 
-        p.roles.includes(role) && 
-        !p.unavailableDateRanges.some(range => isDateInRange(dateStr, range)) &&
-        (!recentAssignments.has(p.name) || 
-         (date - recentAssignments.get(p.name)) / (1000 * 60 * 60 * 24) >= 14) &&
-        (!p.serviceLimits?.[role] || serviceCount.get(`${p.name}-${role}`) < p.serviceLimits[role]) &&
-        Array.from(assignedPeople).every(assigned => canServeTogether(p.name, assigned))
-      );
-
-      if (available.length > 0) {
-        // Sort by preferred pairs first, then by service count
-        available.sort((a, b) => {
-          const prefScoreA = getPreferredScore(a.name, Array.from(assignedPeople));
-          const prefScoreB = getPreferredScore(b.name, Array.from(assignedPeople));
-          if (prefScoreB !== prefScoreA) return prefScoreB - prefScoreA;
-          return (totalServiceCount.get(a.name) || 0) - (totalServiceCount.get(b.name) || 0);
-        });
-        
-        const selectedPerson = available[0];
-        assignment.roles[role] = selectedPerson.name;
-        assignedPeople.add(selectedPerson.name);
-        recentAssignments.set(selectedPerson.name, date.getTime());
-        serviceCount.set(`${selectedPerson.name}-${role}`, (serviceCount.get(`${selectedPerson.name}-${role}`) || 0) + 1);
-        totalServiceCount.set(selectedPerson.name, (totalServiceCount.get(selectedPerson.name) || 0) + 1);
-      } else {
-        const allAvailable = personnel.filter(p => 
+      const assignedPeople = new Set();
+      
+      roles.forEach(role => {
+        // 筛选可用人员
+        let available = personnel.filter(p => 
           p.roles.includes(role) && 
           !p.unavailableDateRanges.some(range => isDateInRange(dateStr, range)) &&
+          (!recentAssignments.has(p.name) || 
+           (date - recentAssignments.get(p.name)) / (1000 * 60 * 60 * 24) >= 14) &&
+          // 检查服务限制
+          (serviceCount.get(`${p.name}-${role}`) < (p.serviceLimits?.[role] || 4)) &&
           Array.from(assignedPeople).every(assigned => canServeTogether(p.name, assigned))
         );
-        if (allAvailable.length > 0) {
-          const selected = allAvailable[Math.floor(Math.random() * allAvailable.length)];
-          assignment.roles[role] = selected.name;
-          assignedPeople.add(selected.name);
+
+        if (available.length > 0) {
+          // 按首选对优先，然后按服务计数排序
+          available.sort((a, b) => {
+            const prefScoreA = getPreferredScore(a.name, Array.from(assignedPeople));
+            const prefScoreB = getPreferredScore(b.name, Array.from(assignedPeople));
+            if (prefScoreB !== prefScoreA) return prefScoreB - prefScoreA;
+            return (totalServiceCount.get(a.name) || 0) - (totalServiceCount.get(b.name) || 0);
+          });
+          
+          const selectedPerson = available[0];
+          assignment.roles[role] = selectedPerson.name;
+          assignedPeople.add(selectedPerson.name);
+          recentAssignments.set(selectedPerson.name, date.getTime());
+          
+          // 更新服务计数
+          serviceCount.set(`${selectedPerson.name}-${role}`, 
+            (serviceCount.get(`${selectedPerson.name}-${role}`) || 0) + 1);
+          totalServiceCount.set(selectedPerson.name, 
+            (totalServiceCount.get(selectedPerson.name) || 0) + 1);
         } else {
+          // 如果没有可用人员，检查是否有人可以担任该角色但已达到服务限制
+          const hasQualifiedPeople = personnel.some(p => 
+            p.roles.includes(role) && 
+            !p.unavailableDateRanges.some(range => isDateInRange(dateStr, range)) &&
+            Array.from(assignedPeople).every(assigned => canServeTogether(p.name, assigned))
+          );
+          
+          // 如果有合格人员但都达到了服务限制，则留空
           assignment.roles[role] = '(空)';
         }
-      }
-    });
+      });
 
-    roster.push(assignment);
+      roster.push(assignment);
     }
     currentDate.setDate(currentDate.getDate() + 1);
   }
@@ -655,12 +664,12 @@ function generateRoster() {
       ${roster.map(week => `
         <tr>
           <td>${week.date}</td>
-          <td>${week.roles['領詩']}</td>
-          <td>${week.roles['司琴']}</td>
-          <td>${week.roles['鼓手']}</td>
-          <td>${week.roles['結他手']}</td>
-          <td>${week.roles['低音結他手']}</td>
-          <td>${week.roles['和唱']}</td>
+          <td>${week.roles['領詩'] || '(空)'}</td>
+          <td>${week.roles['司琴'] || '(空)'}</td>
+          <td>${week.roles['鼓手'] || '(空)'}</td>
+          <td>${week.roles['結他手'] || '(空)'}</td>
+          <td>${week.roles['低音結他手'] || '(空)'}</td>
+          <td>${week.roles['和唱'] || '(空)'}</td>
         </tr>
       `).join('')}
     </table>
