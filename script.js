@@ -350,7 +350,7 @@ function updatePersonnelList() {
       <div class="person-info">
         <input type="text" value="${person.name}" onchange="updatePersonName(${index}, this.value)">
         <div class="role-edit">
-          ${['領詩', '司琴', '鼓手', '結他手', '低音結他手', '和唱'].map(role => `
+          ${['領詩', '司琴', '鼓手', '結他手', '低音結他手', '和唱', '和唱2'].map(role => `
             <div class="role-limit-group">
               <label>
                 <input type="checkbox" value="${role}" 
@@ -526,7 +526,7 @@ function generateRoster() {
   }
 
   roster = [];
-  const roles = ['領詩', '司琴', '鼓手', '結他手', '低音結他手', '和唱'];
+  const roles = ['領詩', '司琴', '鼓手', '結他手', '低音結他手', '和唱', '和唱2'];
   const serviceCount = new Map();
   const totalServiceCount = new Map();
   const recentAssignments = new Map();
@@ -660,6 +660,7 @@ function generateRoster() {
         <th>結他手</th>
         <th>低音結他手</th>
         <th>和唱</th>
+        <th>和唱2</th>
       </tr>
       ${roster.map(week => `
         <tr>
@@ -670,6 +671,7 @@ function generateRoster() {
           <td>${week.roles['結他手'] || '(空)'}</td>
           <td>${week.roles['低音結他手'] || '(空)'}</td>
           <td>${week.roles['和唱'] || '(空)'}</td>
+          <td>${week.roles['和唱2'] || '(空)'}</td>
         </tr>
       `).join('')}
     </table>
@@ -688,6 +690,7 @@ function displayRoster() {
         <th>結他手</th>
         <th>低音結他手</th>
         <th>和唱</th>
+        <th>和唱2</th>
       </tr>
       ${roster.map(week => `
         <tr>
@@ -698,6 +701,7 @@ function displayRoster() {
           <td>${week.roles['結他手']}</td>
           <td>${week.roles['低音結他手']}</td>
           <td>${week.roles['和唱']}</td>
+          <td>${week.roles['和唱2'] || '(空)'}</td>
         </tr>
       `).join('')}
     </table>
@@ -707,10 +711,10 @@ function displayRoster() {
 function exportRoster() {
   // Create CSV content
   const csvContent = "data:text/csv;charset=utf-8," + 
-    "日期,領詩,司琴,鼓手,結他手,低音結他手,和唱\n" +
+    "日期,領詩,司琴,鼓手,結他手,低音結他手,和唱,和唱2\n" +
     roster.map(week => 
       `${week.date},${week.roles['領詩']},${week.roles['司琴']},${week.roles['鼓手']},` +
-      `${week.roles['結他手']},${week.roles['低音結他手']},${week.roles['和唱']}`
+      `${week.roles['結他手']},${week.roles['低音結他手']},${week.roles['和唱']},${week.roles['和唱2'] || '(空)'}`
     ).join("\n");
 
   const encodedUri = encodeURI(csvContent);
